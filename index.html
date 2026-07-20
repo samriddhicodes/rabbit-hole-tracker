@@ -96,6 +96,17 @@ const cy = cytoscape({
       }
     },
     {
+      selector: 'node.ghost',
+      style: {
+        'background-color': '#ffffff',
+        'border-width': 2,
+        'border-style': 'dashed',
+        'border-color': '#aaa',
+        'color': '#777',
+        'opacity': 0.8
+      }
+    },
+    {
       selector: 'node.active',
       style: { 'background-color': '#d64a4a', 'border-width': 3, 'border-color': '#8a1f1f' }
     },
@@ -112,13 +123,30 @@ const cy = cytoscape({
         'target-arrow-shape': 'triangle',
         'curve-style': 'bezier',
       }
+    },
+    {
+      selector: 'edge.ghost-edge',
+      style: {
+        'line-style': 'dashed',
+        'line-color': '#ccc',
+        'target-arrow-color': '#ccc',
+      }
     }
   ],
   layout: { name: 'cose' },
 });
 
 cy.on('tap', 'node', (evt) => {
-  selectNode(evt.target.id());
+  const clickedNode = evt.target;
+  const id = clickedNode.id();
+  
+  if (clickedNode.hasClass('ghost')) {
+    // If a ghost node is clicked, fetch its content and promote it to a full node
+    const parentId = state.selectedNodeId || state.activeNodeId;
+    addArticle(id, parentId);
+  } else {
+    selectNode(id);
+  }
 });
 
 // ---------- Wikipedia API ----------
@@ -126,12 +154,10 @@ const API = 'https://en.wikipedia.org/w/api.php';
 
 async function resolveTitle(input) {
   input = input.trim();
-  // URL form: https://en.wikipedia.org/wiki/Some_Title
   const urlMatch = input.match(/wikipedia\.org\/wiki\/([^#?]+)/i);
   if (urlMatch) {
     return decodeURIComponent(urlMatch[1]).replace(/_/g, ' ');
   }
-  // otherwise treat as a search query
   const params = new URLSearchParams({
     action: 'query', list: 'search', srsearch: input,
     format: 'json', origin: '*', srlimit: 1,
@@ -170,6 +196,10 @@ function setStatus(msg, isError = false) {
   el.style.color = isError ? '#b02a2a' : '#666';
 }
 
+function clearGhostNodes() {
+  cy.nodes('.ghost').remove();
+}
+
 async function addArticle(input, fromId = state.activeNodeId) {
   const btn = document.getElementById('addBtn');
   btn.disabled = true;
@@ -177,8 +207,13 @@ async function addArticle(input, fromId = state.activeNodeId) {
   try {
     const title = await resolveTitle(input);
 
+    // If it's currently a ghost node, clear ghost styling
+    const existingCyNode = cy.getElementById(title);
+    if (existingCyNode.hasClass('ghost')) {
+      existingCyNode.removeClass('ghost');
+    }
+
     if (state.nodes.has(title)) {
-      // already in the graph — just connect it and make it active
       if (fromId && fromId !== title) addEdgeIfNew(fromId, title);
       setActive(title);
       selectNode(title);
@@ -190,12 +225,14 @@ async function addArticle(input, fromId = state.activeNodeId) {
     const article = await fetchArticle(title);
     state.nodes.set(article.title, { ...article, note: '' });
 
-    cy.add({ group: 'nodes', data: { id: article.title, label: article.title } });
+    if (!cy.getElementById(article.title).length) {
+      cy.add({ group: 'nodes', data: { id: article.title, label: article.title } });
+    }
+    
     if (fromId && fromId !== article.title) {
       addEdgeIfNew(fromId, article.title);
     }
-    cy.layout({ name: 'cose', animate: true, animationDuration: 400 }).run();
-
+    
     setActive(article.title);
     selectNode(article.title);
     setStatus('');
@@ -207,10 +244,15 @@ async function addArticle(input, fromId = state.activeNodeId) {
   }
 }
 
-function addEdgeIfNew(fromId, toId) {
+function addEdgeIfNew(fromId, toId, isGhost = false) {
   const edgeId = `${fromId}__${toId}`;
   if (cy.getElementById(edgeId).length) return;
-  cy.add({ group: 'edges', data: { id: edgeId, source: fromId, target: toId } });
+  
+  cy.add({ 
+    group: 'edges', 
+    data: { id: edgeId, source: fromId, target: toId },
+    classes: isGhost ? 'ghost-edge' : ''
+  });
 }
 
 function setActive(id) {
@@ -234,9 +276,13 @@ function selectNode(id) {
   document.getElementById('panel-summary').textContent = node.summary || '(no summary available)';
   document.getElementById('panel-note').value = node.note || '';
 
+  // Render ghost nodes on canvas & sidebar
+  clearGhostNodes();
+  
+  const unvisited = node.links.filter(l => !state.nodes.has(l)).slice(0, 8); // Top 8 suggestions
   const suggestedEl = document.getElementById('panel-suggested');
   suggestedEl.innerHTML = '';
-  const unvisited = node.links.filter(l => !state.nodes.has(l)).slice(0, 15);
+
   if (unvisited.length === 0) {
     const li = document.createElement('li');
     li.textContent = 'No unvisited links found.';
@@ -244,12 +290,26 @@ function selectNode(id) {
     suggestedEl.appendChild(li);
   } else {
     unvisited.forEach(linkTitle => {
+      // Add ghost node to graph
+      if (!cy.getElementById(linkTitle).length) {
+        cy.add({
+          group: 'nodes',
+          data: { id: linkTitle, label: linkTitle },
+          classes: 'ghost'
+        });
+        addEdgeIfNew(id, linkTitle, true);
+      }
+
+      // Populate sidebar list
       const li = document.createElement('li');
       li.textContent = linkTitle;
       li.onclick = () => addArticle(linkTitle, id);
       suggestedEl.appendChild(li);
     });
   }
+
+  // Re-run graph layout smoothly to account for ghost nodes
+  cy.layout({ name: 'cose', animate: true, animationDuration: 300 }).run();
 }
 
 document.getElementById('panel-note').addEventListener('input', (e) => {
@@ -272,8 +332,7 @@ document.getElementById('input').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') document.getElementById('addBtn').click();
 });
 
-// ---------- Persistence (today's session) ----------
-// Sessions are day-scoped, per the spec: one key per calendar day, e.g. "session:2026-07-20".
+// ---------- Persistence ----------
 function getTodayKey() {
   const d = new Date();
   const y = d.getFullYear();
@@ -286,7 +345,7 @@ function serializeSession() {
   return {
     activeNodeId: state.activeNodeId,
     nodes: Array.from(state.nodes.values()),
-    edges: cy.edges().map(e => ({ source: e.data('source'), target: e.data('target') })),
+    edges: cy.edges(':not(.ghost-edge)').map(e => ({ source: e.data('source'), target: e.data('target') })),
   };
 }
 
@@ -307,7 +366,7 @@ function saveSession() {
 
 function loadSession() {
   const raw = localStorage.getItem(getTodayKey());
-  if (!raw) return; // no session saved yet today — start fresh
+  if (!raw) return;
 
   let session;
   try {
@@ -324,8 +383,10 @@ function loadSession() {
   session.edges.forEach(e => addEdgeIfNew(e.source, e.target));
 
   if (state.nodes.size) {
-    cy.layout({ name: 'cose' }).run();
-    if (session.activeNodeId) setActive(session.activeNodeId);
+    if (session.activeNodeId) {
+      setActive(session.activeNodeId);
+      selectNode(session.activeNodeId);
+    }
     setStatus(`Loaded today's session — ${state.nodes.size} article${state.nodes.size === 1 ? '' : 's'}.`);
   }
 }
