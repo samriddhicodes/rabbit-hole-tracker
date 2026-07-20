@@ -10,30 +10,92 @@
 
   #topbar {
     display: flex; align-items: center; gap: 8px;
-    padding: 10px 14px; border-bottom: 1px solid #ddd;
+    padding: 10px 14px; border-bottom: 1px solid #ddd; background: #fff;
+    position: relative; z-index: 100;
   }
-  #topbar input {
-    flex: 1; padding: 8px 10px; font-size: 14px;
+  
+  /* Autocomplete Container */
+  .search-container { position: relative; flex: 1; }
+  .search-container input {
+    width: 100%; padding: 8px 10px; font-size: 14px;
     border: 1px solid #ccc; border-radius: 6px;
   }
+  .autocomplete-dropdown {
+    position: absolute; top: 100%; left: 0; right: 0;
+    background: #fff; border: 1px solid #ccc; border-top: none;
+    border-radius: 0 0 6px 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    max-height: 200px; overflow-y: auto; z-index: 200; display: none;
+  }
+  .autocomplete-item {
+    padding: 8px 12px; font-size: 13px; cursor: pointer; color: #333;
+  }
+  .autocomplete-item:hover, .autocomplete-item.selected {
+    background: #f0f4f9; color: #4a7bd6;
+  }
+
   #topbar button {
     padding: 8px 14px; font-size: 14px; border: none;
     border-radius: 6px; background: #333; color: white; cursor: pointer;
   }
   #topbar button:disabled { background: #999; cursor: default; }
+  #topbar button.secondary { background: #555; }
+  #topbar button.secondary:hover { background: #444; }
+  #topbar button.danger { background: #b02a2a; }
+  #topbar button.danger:hover { background: #8a1f1f; }
+
+  /* Tab Navigation */
+  .tab-group { display: flex; background: #eee; padding: 3px; border-radius: 6px; gap: 2px; }
+  .tab-btn {
+    padding: 6px 12px; font-size: 13px; border: none; background: transparent;
+    cursor: pointer; border-radius: 4px; color: #555; font-weight: 500;
+  }
+  .tab-btn.active { background: #fff; color: #000; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
   #status { font-size: 13px; color: #666; padding: 0 14px 8px; min-height: 16px; }
 
-  #main { flex: 1; display: flex; overflow: hidden; }
+  #main { flex: 1; display: flex; overflow: hidden; position: relative; }
+  
+  /* View Containers */
+  .view-container { flex: 1; display: none; height: 100%; overflow-y: auto; }
+  .view-container.active { display: flex; }
+
+  #cy-view { position: relative; }
   #cy { flex: 1; background: #fafafa; }
+
+  /* Floating Canvas Controls */
+  .canvas-controls {
+    position: absolute; bottom: 16px; left: 16px;
+    display: flex; gap: 6px; z-index: 10;
+  }
+  .canvas-controls button {
+    background: #ffffff; border: 1px solid #ccc;
+    border-radius: 6px; padding: 8px 12px; font-size: 13px;
+    cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  .canvas-controls button:hover { background: #f0f0f0; }
+
+  /* Category Legend */
+  #category-legend {
+    position: absolute; bottom: 16px; right: 336px;
+    background: #ffffff; border: 1px solid #ccc; border-radius: 6px;
+    padding: 8px 12px; font-size: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    max-width: 220px; z-index: 10; display: none;
+  }
+  #category-legend h4 { margin: 0 0 6px; font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+  .legend-color { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .legend-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #333; }
 
   #panel {
     width: 320px; border-left: 1px solid #ddd; padding: 16px;
-    overflow-y: auto; display: none; flex-shrink: 0;
+    overflow-y: auto; display: none; flex-shrink: 0; background: #fff;
   }
   #panel.open { display: block; }
-  #panel h2 { margin: 0 0 8px; font-size: 18px; }
+  #panel h2 { margin: 0 0 4px; font-size: 18px; }
+  #panel .category-tag { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #777; margin-bottom: 8px; display: block; }
   #panel p.summary { font-size: 13px; line-height: 1.5; color: #333; }
-  #panel a.wiki-link { font-size: 12px; }
+  #panel a.wiki-link { font-size: 12px; color: #4a7bd6; text-decoration: none; }
+  #panel a.wiki-link:hover { text-decoration: underline; }
   #panel textarea {
     width: 100%; min-height: 60px; margin-top: 10px;
     font-size: 13px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
@@ -46,36 +108,149 @@
     background: #f2f2f2; border-radius: 4px; cursor: pointer;
   }
   .suggested-list li:hover { background: #e5e5e5; }
+
+  .panel-actions { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; }
+  .panel-actions button {
+    width: 100%; padding: 8px; font-size: 13px; border: 1px solid #d64a4a;
+    background: #fff; color: #d64a4a; border-radius: 4px; cursor: pointer;
+  }
+  .panel-actions button:hover { background: #fdf2f2; }
+
+  /* Timeline & Stats Styles */
+  #timeline-view, #stats-view { padding: 24px; max-width: 800px; margin: 0 auto; width: 100%; flex-direction: column; }
+  .timeline-item {
+    padding: 16px; border: 1px solid #e0e0e0; border-radius: 8px;
+    margin-bottom: 16px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+  .timeline-item h3 { margin: 0 0 6px; font-size: 16px; }
+  .timeline-item a { color: #4a7bd6; font-size: 12px; text-decoration: none; }
+  .timeline-item p { font-size: 13px; line-height: 1.5; color: #444; margin: 8px 0; }
+  .timeline-note { background: #fdf8e2; border-left: 3px solid #e6c200; padding: 8px 12px; font-size: 13px; margin-top: 8px; border-radius: 0 4px 4px 0; }
+
+  .stat-card {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 8px;
+    padding: 16px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .stat-card h4 { margin: 0; font-size: 14px; color: #666; }
+  .stat-card .value { font-size: 24px; font-weight: bold; color: #333; }
+
+  /* Modal Styling */
+  .modal-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.4); display: none;
+    align-items: center; justify-content: center; z-index: 1000;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-content {
+    background: #fff; border-radius: 8px; width: 600px; max-width: 90%;
+    max-height: 80vh; display: flex; flex-direction: column; padding: 20px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .modal-header h2 { margin: 0; font-size: 18px; }
+  .modal-body { flex: 1; overflow-y: auto; margin-bottom: 16px; }
+  .modal-body textarea {
+    width: 100%; height: 300px; font-family: monospace; font-size: 12px;
+    padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none;
+  }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; }
 </style>
 </head>
 <body>
 
 <div id="topbar">
-  <input id="input" type="text" placeholder="Paste a Wikipedia URL or search a topic…" />
+  <div class="search-container">
+    <input id="input" type="text" placeholder="Search a topic or paste a Wikipedia URL…" autocomplete="off" />
+    <div id="autocomplete" class="autocomplete-dropdown"></div>
+  </div>
   <button id="addBtn">Add</button>
+  
+  <div class="tab-group">
+    <button class="tab-btn active" data-view="cy-view">Graph</button>
+    <button class="tab-btn" data-view="timeline-view">Timeline</button>
+    <button class="tab-btn" data-view="stats-view">Stats</button>
+  </div>
+
+  <button id="exportPngBtn" class="secondary">Export PNG</button>
+  <button id="exportMdBtn" class="secondary">Export MD</button>
+  <button id="clearSessionBtn" class="danger">Clear</button>
 </div>
 <div id="status"></div>
 
 <div id="main">
-  <div id="cy"></div>
-  <div id="panel">
-    <h2 id="panel-title"></h2>
-    <a id="panel-link" class="wiki-link" target="_blank" rel="noopener">Open on Wikipedia →</a>
-    <p class="summary" id="panel-summary"></p>
-    <h3>Note</h3>
-    <textarea id="panel-note" placeholder="Jot down why this mattered…"></textarea>
-    <h3>Suggested next reads</h3>
-    <ul class="suggested-list" id="panel-suggested"></ul>
+  <div id="cy-view" class="view-container active">
+    <div id="cy"></div>
+    <div class="canvas-controls">
+      <button id="recenterBtn" title="Fit all nodes in view">🔍 Recenter View</button>
+    </div>
+    
+    <div id="category-legend">
+      <h4>Topic Clusters</h4>
+      <div id="legend-list"></div>
+    </div>
+
+    <div id="panel">
+      <h2 id="panel-title"></h2>
+      <span id="panel-category" class="category-tag"></span>
+      <a id="panel-link" class="wiki-link" target="_blank" rel="noopener">Open on Wikipedia →</a>
+      <p class="summary" id="panel-summary"></p>
+      <h3>Note</h3>
+      <textarea id="panel-note" placeholder="Jot down why this mattered…"></textarea>
+      <h3>Suggested next reads</h3>
+      <ul class="suggested-list" id="panel-suggested"></ul>
+      
+      <div class="panel-actions">
+        <button id="deleteNodeBtn">Delete Node from Canvas</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="timeline-view" class="view-container"></div>
+
+  <div id="stats-view" class="view-container"></div>
+</div>
+
+<div id="exportModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Export Markdown Recap</h2>
+      <button id="closeModalBtn" style="background:none; border:none; font-size:20px; cursor:pointer;">&times;</button>
+    </div>
+    <div class="modal-body">
+      <textarea id="mdOutput" readonly></textarea>
+    </div>
+    <div class="modal-footer">
+      <button id="copyMdBtn">Copy to Clipboard</button>
+      <button id="downloadMdBtn" class="secondary">Download .md</button>
+    </div>
   </div>
 </div>
 
 <script>
+// ---------- Color Palette Generator ----------
+const COLOR_PALETTE = [
+  '#4a7bd6', '#d64a4a', '#3ea055', '#e6a100', 
+  '#8e44ad', '#16a085', '#d35400', '#2c3e50'
+];
+
+const categoryColors = new Map();
+let colorIdx = 0;
+
+function getCategoryColor(category) {
+  if (!category) return '#4a7bd6';
+  if (!categoryColors.has(category)) {
+    const color = COLOR_PALETTE[colorIdx % COLOR_PALETTE.length];
+    categoryColors.set(category, color);
+    colorIdx++;
+  }
+  return categoryColors.get(category);
+}
+
 // ---------- State ----------
-// nodes: Map<title, {title, summary, url, links: string[], note: string}>
 const state = {
   nodes: new Map(),
-  activeNodeId: null,   // the most recently added node — new additions link FROM here
-  selectedNodeId: null, // whichever node is open in the side panel
+  activeNodeId: null,
+  selectedNodeId: null,
 };
 
 // ---------- Cytoscape setup ----------
@@ -89,7 +264,7 @@ const cy = cytoscape({
         'font-size': 11,
         'text-valign': 'bottom',
         'text-margin-y': 4,
-        'background-color': '#4a7bd6',
+        'background-color': 'data(color)',
         'width': 26,
         'height': 26,
         'border-width': 0,
@@ -108,7 +283,7 @@ const cy = cytoscape({
     },
     {
       selector: 'node.active',
-      style: { 'background-color': '#d64a4a', 'border-width': 3, 'border-color': '#8a1f1f' }
+      style: { 'border-width': 3, 'border-color': '#000' }
     },
     {
       selector: 'node:selected',
@@ -141,12 +316,242 @@ cy.on('tap', 'node', (evt) => {
   const id = clickedNode.id();
   
   if (clickedNode.hasClass('ghost')) {
-    // If a ghost node is clicked, fetch its content and promote it to a full node
     const parentId = state.selectedNodeId || state.activeNodeId;
     addArticle(id, parentId);
   } else {
     selectNode(id);
   }
+});
+
+// ---------- Legend UI Update ----------
+function updateLegend() {
+  const legendBox = document.getElementById('category-legend');
+  const legendList = document.getElementById('legend-list');
+  legendList.innerHTML = '';
+
+  if (categoryColors.size === 0) {
+    legendBox.style.display = 'none';
+    return;
+  }
+
+  categoryColors.forEach((color, cat) => {
+    const item = document.createElement('div');
+    item.className = 'legend-item';
+    item.innerHTML = `
+      <div class="legend-color" style="background-color: ${color}"></div>
+      <div class="legend-text" title="${cat}">${cat}</div>
+    `;
+    legendList.appendChild(item);
+  });
+
+  legendBox.style.display = 'block';
+}
+
+// ---------- View Switcher Tabs ----------
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+
+    e.target.classList.add('active');
+    const viewId = e.target.getAttribute('data-view');
+    document.getElementById(viewId).classList.add('active');
+
+    if (viewId === 'timeline-view') renderTimeline();
+    if (viewId === 'stats-view') renderStats();
+    if (viewId === 'cy-view') cy.resize();
+  });
+});
+
+function renderTimeline() {
+  const container = document.getElementById('timeline-view');
+  container.innerHTML = '<h2>Exploration Timeline</h2>';
+
+  const articles = Array.from(state.nodes.values());
+  if (articles.length === 0) {
+    container.innerHTML += '<p style="color:#777;">No articles added yet today.</p>';
+    return;
+  }
+
+  articles.forEach((art, idx) => {
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    item.innerHTML = `
+      <h3>${idx + 1}. ${art.title} <span style="font-size:12px; color:${getCategoryColor(art.category)};">(${art.category || 'General'})</span></h3>
+      <a href="${art.url}" target="_blank" rel="noopener">Open Wikipedia Article →</a>
+      <p>${art.summary || '<em>No extract available.</em>'}</p>
+      ${art.note ? `<div class="timeline-note"><strong>Note:</strong> ${art.note}</div>` : ''}
+    `;
+    container.appendChild(item);
+  });
+}
+
+function renderStats() {
+  const container = document.getElementById('stats-view');
+  const articles = Array.from(state.nodes.values());
+  const edgesCount = cy.edges(':not(.ghost-edge)').length;
+  const notesCount = articles.filter(a => a.note && a.note.trim()).length;
+
+  container.innerHTML = `
+    <h2>Session Statistics</h2>
+    <div class="stat-card">
+      <h4>Total Articles Read</h4>
+      <div class="value">${articles.length}</div>
+    </div>
+    <div class="stat-card">
+      <h4>Topics Covered</h4>
+      <div class="value">${categoryColors.size}</div>
+    </div>
+    <div class="stat-card">
+      <h4>Connections Made</h4>
+      <div class="value">${edgesCount}</div>
+    </div>
+    <div class="stat-card">
+      <h4>Notes Written</h4>
+      <div class="value">${notesCount}</div>
+    </div>
+  `;
+}
+
+// ---------- Canvas & Export Controls ----------
+document.getElementById('recenterBtn').addEventListener('click', () => {
+  cy.animate({ fit: { padding: 40 }, duration: 300 });
+});
+
+document.getElementById('exportPngBtn').addEventListener('click', () => {
+  const pngData = cy.png({ full: true, bg: '#ffffff', scale: 2 });
+  const dateStr = new Date().toISOString().split('T')[0];
+  const a = document.createElement('a');
+  a.href = pngData;
+  a.download = `rabbit-hole-map-${dateStr}.png`;
+  a.click();
+});
+
+document.getElementById('deleteNodeBtn').addEventListener('click', () => {
+  if (!state.selectedNodeId) return;
+  const targetId = state.selectedNodeId;
+  
+  const ele = cy.getElementById(targetId);
+  if (ele) cy.remove(ele);
+  
+  state.nodes.delete(targetId);
+  if (state.activeNodeId === targetId) {
+    const remaining = Array.from(state.nodes.keys());
+    state.activeNodeId = remaining.length ? remaining[remaining.length - 1] : null;
+  }
+  
+  state.selectedNodeId = null;
+  document.getElementById('panel').classList.remove('open');
+  clearGhostNodes();
+  scheduleSave();
+  setStatus(`Removed article "${targetId}".`);
+});
+
+document.getElementById('clearSessionBtn').addEventListener('click', () => {
+  if (confirm("Are you sure you want to clear today's session? All nodes and notes will be wiped.")) {
+    state.nodes.clear();
+    categoryColors.clear();
+    colorIdx = 0;
+    state.activeNodeId = null;
+    state.selectedNodeId = null;
+    cy.elements().remove();
+    document.getElementById('panel').classList.remove('open');
+    updateLegend();
+    localStorage.removeItem(getTodayKey());
+    setStatus('Session cleared.');
+  }
+});
+
+// ---------- Live Search Autocomplete ----------
+const inputEl = document.getElementById('input');
+const autoEl = document.getElementById('autocomplete');
+let searchDebounce = null;
+let selectedSuggestIdx = -1;
+
+inputEl.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  const query = inputEl.value.trim();
+  if (query.length < 2 || query.startsWith('http')) {
+    hideAutocomplete();
+    return;
+  }
+
+  searchDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&search=${encodeURIComponent(query)}&limit=6&namespace=0&format=json&origin=*`);
+      const data = await res.json();
+      const suggestions = data[1] || [];
+      showAutocomplete(suggestions);
+    } catch (e) {
+      hideAutocomplete();
+    }
+  }, 200);
+});
+
+function showAutocomplete(suggestions) {
+  autoEl.innerHTML = '';
+  selectedSuggestIdx = -1;
+  if (!suggestions.length) { hideAutocomplete(); return; }
+
+  suggestions.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    div.textContent = item;
+    div.onclick = () => {
+      inputEl.value = item;
+      hideAutocomplete();
+      addArticle(item);
+    };
+    autoEl.appendChild(div);
+  });
+  autoEl.style.display = 'block';
+}
+
+function hideAutocomplete() {
+  autoEl.style.display = 'none';
+  autoEl.innerHTML = '';
+  selectedSuggestIdx = -1;
+}
+
+inputEl.addEventListener('keydown', (e) => {
+  const items = autoEl.querySelectorAll('.autocomplete-item');
+  if (autoEl.style.display === 'block' && items.length) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      selectedSuggestIdx = (selectedSuggestIdx + 1) % items.length;
+      highlightSuggestion(items);
+      return;
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      selectedSuggestIdx = (selectedSuggestIdx - 1 + items.length) % items.length;
+      highlightSuggestion(items);
+      return;
+    } else if (e.key === 'Enter' && selectedSuggestIdx >= 0) {
+      e.preventDefault();
+      items[selectedSuggestIdx].click();
+      return;
+    }
+  }
+
+  if (e.key === 'Enter') {
+    hideAutocomplete();
+    document.getElementById('addBtn').click();
+  }
+});
+
+function highlightSuggestion(items) {
+  items.forEach((item, i) => {
+    if (i === selectedSuggestIdx) {
+      item.classList.add('selected');
+      inputEl.value = item.textContent;
+    } else {
+      item.classList.remove('selected');
+    }
+  });
+}
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.search-container')) hideAutocomplete();
 });
 
 // ---------- Wikipedia API ----------
@@ -171,9 +576,10 @@ async function resolveTitle(input) {
 async function fetchArticle(title) {
   const params = new URLSearchParams({
     action: 'query', format: 'json', origin: '*',
-    prop: 'extracts|links',
+    prop: 'extracts|links|categories',
     exintro: 1, explaintext: 1,
     pllimit: 100, plnamespace: 0,
+    cllimit: 10,
     redirects: 1,
     titles: title,
   });
@@ -182,11 +588,19 @@ async function fetchArticle(title) {
   const pages = data.query.pages;
   const page = Object.values(pages)[0];
   if (page.missing !== undefined) throw new Error(`Article "${title}" not found`);
+  
   const resolvedTitle = page.title;
   const summary = (page.extract || '').trim();
   const links = (page.links || []).map(l => l.title);
+  
+  const rawCategories = (page.categories || [])
+    .map(c => c.title.replace(/^Category:/, ''))
+    .filter(c => !c.toLowerCase().includes('articles') && !c.toLowerCase().includes('disambiguation') && !c.toLowerCase().includes('cs1'));
+  
+  const category = rawCategories.length ? rawCategories[0] : 'General Topic';
   const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(resolvedTitle.replace(/ /g, '_'))}`;
-  return { title: resolvedTitle, summary, links, url };
+  
+  return { title: resolvedTitle, summary, links, category, url };
 }
 
 // ---------- Node / graph management ----------
@@ -207,7 +621,6 @@ async function addArticle(input, fromId = state.activeNodeId) {
   try {
     const title = await resolveTitle(input);
 
-    // If it's currently a ghost node, clear ghost styling
     const existingCyNode = cy.getElementById(title);
     if (existingCyNode.hasClass('ghost')) {
       existingCyNode.removeClass('ghost');
@@ -223,16 +636,23 @@ async function addArticle(input, fromId = state.activeNodeId) {
     }
 
     const article = await fetchArticle(title);
-    state.nodes.set(article.title, { ...article, note: '' });
+    const color = getCategoryColor(article.category);
+    state.nodes.set(article.title, { ...article, color, note: '' });
 
     if (!cy.getElementById(article.title).length) {
-      cy.add({ group: 'nodes', data: { id: article.title, label: article.title } });
+      cy.add({ 
+        group: 'nodes', 
+        data: { id: article.title, label: article.title, color: color } 
+      });
+    } else {
+      cy.getElementById(article.title).data('color', color);
     }
     
     if (fromId && fromId !== article.title) {
       addEdgeIfNew(fromId, article.title);
     }
     
+    updateLegend();
     setActive(article.title);
     selectNode(article.title);
     setStatus('');
@@ -272,14 +692,18 @@ function selectNode(id) {
 
   document.getElementById('panel').classList.add('open');
   document.getElementById('panel-title').textContent = node.title;
+  
+  const catEl = document.getElementById('panel-category');
+  catEl.textContent = node.category || 'General Topic';
+  catEl.style.color = node.color || '#777';
+
   document.getElementById('panel-link').href = node.url;
   document.getElementById('panel-summary').textContent = node.summary || '(no summary available)';
   document.getElementById('panel-note').value = node.note || '';
 
-  // Render ghost nodes on canvas & sidebar
   clearGhostNodes();
   
-  const unvisited = node.links.filter(l => !state.nodes.has(l)).slice(0, 8); // Top 8 suggestions
+  const unvisited = node.links.filter(l => !state.nodes.has(l)).slice(0, 8);
   const suggestedEl = document.getElementById('panel-suggested');
   suggestedEl.innerHTML = '';
 
@@ -290,17 +714,15 @@ function selectNode(id) {
     suggestedEl.appendChild(li);
   } else {
     unvisited.forEach(linkTitle => {
-      // Add ghost node to graph
       if (!cy.getElementById(linkTitle).length) {
         cy.add({
           group: 'nodes',
-          data: { id: linkTitle, label: linkTitle },
+          data: { id: linkTitle, label: linkTitle, color: '#ccc' },
           classes: 'ghost'
         });
         addEdgeIfNew(id, linkTitle, true);
       }
 
-      // Populate sidebar list
       const li = document.createElement('li');
       li.textContent = linkTitle;
       li.onclick = () => addArticle(linkTitle, id);
@@ -308,7 +730,6 @@ function selectNode(id) {
     });
   }
 
-  // Re-run graph layout smoothly to account for ghost nodes
   cy.layout({ name: 'cose', animate: true, animationDuration: 300 }).run();
 }
 
@@ -320,6 +741,86 @@ document.getElementById('panel-note').addEventListener('input', (e) => {
   }
 });
 
+// ---------- Markdown Export Functionality ----------
+function generateMarkdown() {
+  const dateStr = new Date().toISOString().split('T')[0];
+  let md = `# Rabbit Hole Session — ${dateStr}\n\n`;
+
+  const articles = Array.from(state.nodes.values());
+  const notesCount = articles.filter(a => a.note && a.note.trim()).length;
+
+  md += `**Summary**: ${articles.length} articles explored across ${categoryColors.size} topics, ${notesCount} notes taken.\n\n`;
+  md += `---\n\n## Traversed Map\n\n`;
+
+  const edges = cy.edges(':not(.ghost-edge)');
+  if (edges.length === 0 && articles.length > 0) {
+    md += `- [[${articles[0].title}]]\n`;
+  } else {
+    const connections = new Map();
+    edges.forEach(e => {
+      const src = e.data('source');
+      const tgt = e.data('target');
+      if (!connections.has(src)) connections.set(src, []);
+      connections.get(src).push(tgt);
+    });
+
+    connections.forEach((targets, source) => {
+      md += `- **${source}**\n`;
+      targets.forEach(t => {
+        md += `  - → [[${t}]]\n`;
+      });
+    });
+  }
+
+  md += `\n---\n\n## Articles & Notes\n\n`;
+
+  articles.forEach(article => {
+    md += `### [${article.title}](${article.url}) *(${article.category || 'General'})*\n\n`;
+    if (article.note && article.note.trim()) {
+      md += `**Note:**\n> ${article.note.trim().replace(/\n/g, '\n> ')}\n\n`;
+    }
+    if (article.summary) {
+      const shortSummary = article.summary.length > 300 
+        ? article.summary.substring(0, 300) + '...' 
+        : article.summary;
+      md += `**Summary:** ${shortSummary}\n\n`;
+    }
+  });
+
+  return md;
+}
+
+const modal = document.getElementById('exportModal');
+const mdOutput = document.getElementById('mdOutput');
+
+document.getElementById('exportMdBtn').addEventListener('click', () => {
+  mdOutput.value = generateMarkdown();
+  modal.classList.add('active');
+});
+
+document.getElementById('closeModalBtn').addEventListener('click', () => {
+  modal.classList.remove('active');
+});
+
+document.getElementById('copyMdBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(mdOutput.value).then(() => {
+    const btn = document.getElementById('copyMdBtn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => { btn.textContent = 'Copy to Clipboard'; }, 2000);
+  });
+});
+
+document.getElementById('downloadMdBtn').addEventListener('click', () => {
+  const dateStr = new Date().toISOString().split('T')[0];
+  const blob = new Blob([mdOutput.value], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `rabbit-hole-${dateStr}.md`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
 // ---------- Input wiring ----------
 document.getElementById('addBtn').addEventListener('click', () => {
   const input = document.getElementById('input');
@@ -327,9 +828,6 @@ document.getElementById('addBtn').addEventListener('click', () => {
     addArticle(input.value.trim());
     input.value = '';
   }
-});
-document.getElementById('input').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') document.getElementById('addBtn').click();
 });
 
 // ---------- Persistence ----------
@@ -377,12 +875,14 @@ function loadSession() {
   }
 
   session.nodes.forEach(n => {
-    state.nodes.set(n.title, n);
-    cy.add({ group: 'nodes', data: { id: n.title, label: n.title } });
+    const color = getCategoryColor(n.category);
+    state.nodes.set(n.title, { ...n, color });
+    cy.add({ group: 'nodes', data: { id: n.title, label: n.title, color } });
   });
   session.edges.forEach(e => addEdgeIfNew(e.source, e.target));
 
   if (state.nodes.size) {
+    updateLegend();
     if (session.activeNodeId) {
       setActive(session.activeNodeId);
       selectNode(session.activeNodeId);
