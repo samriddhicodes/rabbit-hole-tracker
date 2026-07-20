@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rabbit Hole Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; }
+
+  #topbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid #ddd;
+  }
+  #topbar input {
+    flex: 1; padding: 8px 10px; font-size: 14px;
+    border: 1px solid #ccc; border-radius: 6px;
+  }
+  #topbar button {
+    padding: 8px 14px; font-size: 14px; border: none;
+    border-radius: 6px; background: #333; color: white; cursor: pointer;
+  }
+  #topbar button:disabled { background: #999; cursor: default; }
+  #status { font-size: 13px; color: #666; padding: 0 14px 8px; min-height: 16px; }
+
+  #main { flex: 1; display: flex; overflow: hidden; }
+  #cy { flex: 1; background: #fafafa; }
+
+  #panel {
+    width: 320px; border-left: 1px solid #ddd; padding: 16px;
+    overflow-y: auto; display: none; flex-shrink: 0;
+  }
+  #panel.open { display: block; }
+  #panel h2 { margin: 0 0 8px; font-size: 18px; }
+  #panel p.summary { font-size: 13px; line-height: 1.5; color: #333; }
+  #panel a.wiki-link { font-size: 12px; }
+  #panel textarea {
+    width: 100%; min-height: 60px; margin-top: 10px;
+    font-size: 13px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+    font-family: inherit; resize: vertical;
+  }
+  #panel h3 { font-size: 13px; margin: 16px 0 6px; color: #555; }
+  .suggested-list { list-style: none; padding: 0; margin: 0; }
+  .suggested-list li {
+    padding: 6px 8px; margin-bottom: 4px; font-size: 13px;
+    background: #f2f2f2; border-radius: 4px; cursor: pointer;
+  }
+  .suggested-list li:hover { background: #e5e5e5; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <input id="input" type="text" placeholder="Paste a Wikipedia URL or search a topic…" />
+  <button id="addBtn">Add</button>
+</div>
+<div id="status"></div>
+
+<div id="main">
+  <div id="cy"></div>
+  <div id="panel">
+    <h2 id="panel-title"></h2>
+    <a id="panel-link" class="wiki-link" target="_blank" rel="noopener">Open on Wikipedia →</a>
+    <p class="summary" id="panel-summary"></p>
+    <h3>Note</h3>
+    <textarea id="panel-note" placeholder="Jot down why this mattered…"></textarea>
+    <h3>Suggested next reads</h3>
+    <ul class="suggested-list" id="panel-suggested"></ul>
+  </div>
+</div>
+
+<script>
+// ---------- State ----------
+// nodes: Map<title, {title, summary, url, links: string[], note: string}>
+const state = {
+  nodes: new Map(),
+  activeNodeId: null,   // the most recently added node — new additions link FROM here
+  selectedNodeId: null, // whichever node is open in the side panel
+};
+
+// ---------- Cytoscape setup ----------
+const cy = cytoscape({
+  container: document.getElementById('cy'),
+  style: [
+    {
+      selector: 'node',
+      style: {
+        'label': 'data(label)',
+        'font-size': 11,
+        'text-valign': 'bottom',
+        'text-margin-y': 4,
+        'background-color': '#4a7bd6',
+        'width': 26,
+        'height': 26,
+        'border-width': 0,
+      }
+    },
+    {
+      selector: 'node.active',
+      style: { 'background-color': '#d64a4a', 'border-width': 3, 'border-color': '#8a1f1f' }
+    },
+    {
+      selector: 'node:selected',
+      style: { 'border-width': 3, 'border-color': '#333' }
+    },
+    {
+      selector: 'edge',
+      style: {
+        'width': 1.5,
+        'line-color': '#bbb',
+        'target-arrow-color': '#bbb',
+        'target-arrow-shape': 'triangle',
+        'curve-style': 'bezier',
+      }
+    }
+  ],
+  layout: { name: 'cose' },
+});
+
+cy.on('tap', 'node', (evt) => {
+  selectNode(evt.target.id());
+});
+
+// ---------- Wikipedia API ----------
+const API = 'https://en.wikipedia.org/w/api.php';
+
+async function resolveTitle(input) {
+  input = input.trim();
+  // URL form: https://en.wikipedia.org/wiki/Some_Title
+  const urlMatch = input.match(/wikipedia\.org\/wiki\/([^#?]+)/i);
+  if (urlMatch) {
+    return decodeURIComponent(urlMatch[1]).replace(/_/g, ' ');
+  }
+  // otherwise treat as a search query
+  const params = new URLSearchParams({
+    action: 'query', list: 'search', srsearch: input,
+    format: 'json', origin: '*', srlimit: 1,
+  });
+  const res = await fetch(`${API}?${params}`);
+  const data = await res.json();
+  if (!data.query?.search?.length) throw new Error(`No Wikipedia article found for "${input}"`);
+  return data.query.search[0].title;
+}
+
+async function fetchArticle(title) {
+  const params = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*',
+    prop: 'extracts|links',
+    exintro: 1, explaintext: 1,
+    pllimit: 100, plnamespace: 0,
+    redirects: 1,
+    titles: title,
+  });
+  const res = await fetch(`${API}?${params}`);
+  const data = await res.json();
+  const pages = data.query.pages;
+  const page = Object.values(pages)[0];
+  if (page.missing !== undefined) throw new Error(`Article "${title}" not found`);
+  const resolvedTitle = page.title;
+  const summary = (page.extract || '').trim();
+  const links = (page.links || []).map(l => l.title);
+  const url = `https://en.wikipedia.org/wiki/${encodeURIComponent(resolvedTitle.replace(/ /g, '_'))}`;
+  return { title: resolvedTitle, summary, links, url };
+}
+
+// ---------- Node / graph management ----------
+function setStatus(msg, isError = false) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.style.color = isError ? '#b02a2a' : '#666';
+}
+
+async function addArticle(input, fromId = state.activeNodeId) {
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true;
+  setStatus('Fetching…');
+  try {
+    const title = await resolveTitle(input);
+
+    if (state.nodes.has(title)) {
+      // already in the graph — just connect it and make it active
+      if (fromId && fromId !== title) addEdgeIfNew(fromId, title);
+      setActive(title);
+      selectNode(title);
+      setStatus('');
+      scheduleSave();
+      return;
+    }
+
+    const article = await fetchArticle(title);
+    state.nodes.set(article.title, { ...article, note: '' });
+
+    cy.add({ group: 'nodes', data: { id: article.title, label: article.title } });
+    if (fromId && fromId !== article.title) {
+      addEdgeIfNew(fromId, article.title);
+    }
+    cy.layout({ name: 'cose', animate: true, animationDuration: 400 }).run();
+
+    setActive(article.title);
+    selectNode(article.title);
+    setStatus('');
+    scheduleSave();
+  } catch (err) {
+    setStatus(err.message, true);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function addEdgeIfNew(fromId, toId) {
+  const edgeId = `${fromId}__${toId}`;
+  if (cy.getElementById(edgeId).length) return;
+  cy.add({ group: 'edges', data: { id: edgeId, source: fromId, target: toId } });
+}
+
+function setActive(id) {
+  cy.nodes().removeClass('active');
+  const n = cy.getElementById(id);
+  if (n.length) n.addClass('active');
+  state.activeNodeId = id;
+}
+
+function selectNode(id) {
+  state.selectedNodeId = id;
+  const node = state.nodes.get(id);
+  if (!node) return;
+
+  cy.nodes().unselect();
+  cy.getElementById(id).select();
+
+  document.getElementById('panel').classList.add('open');
+  document.getElementById('panel-title').textContent = node.title;
+  document.getElementById('panel-link').href = node.url;
+  document.getElementById('panel-summary').textContent = node.summary || '(no summary available)';
+  document.getElementById('panel-note').value = node.note || '';
+
+  const suggestedEl = document.getElementById('panel-suggested');
+  suggestedEl.innerHTML = '';
+  const unvisited = node.links.filter(l => !state.nodes.has(l)).slice(0, 15);
+  if (unvisited.length === 0) {
+    const li = document.createElement('li');
+    li.textContent = 'No unvisited links found.';
+    li.style.cursor = 'default';
+    suggestedEl.appendChild(li);
+  } else {
+    unvisited.forEach(linkTitle => {
+      const li = document.createElement('li');
+      li.textContent = linkTitle;
+      li.onclick = () => addArticle(linkTitle, id);
+      suggestedEl.appendChild(li);
+    });
+  }
+}
+
+document.getElementById('panel-note').addEventListener('input', (e) => {
+  const node = state.nodes.get(state.selectedNodeId);
+  if (node) {
+    node.note = e.target.value;
+    scheduleSave();
+  }
+});
+
+// ---------- Input wiring ----------
+document.getElementById('addBtn').addEventListener('click', () => {
+  const input = document.getElementById('input');
+  if (input.value.trim()) {
+    addArticle(input.value.trim());
+    input.value = '';
+  }
+});
+document.getElementById('input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('addBtn').click();
+});
+
+// ---------- Persistence (today's session) ----------
+// Sessions are day-scoped, per the spec: one key per calendar day, e.g. "session:2026-07-20".
+function getTodayKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `session:${y}-${m}-${day}`;
+}
+
+function serializeSession() {
+  return {
+    activeNodeId: state.activeNodeId,
+    nodes: Array.from(state.nodes.values()),
+    edges: cy.edges().map(e => ({ source: e.data('source'), target: e.data('target') })),
+  };
+}
+
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveSession, 400);
+}
+
+function saveSession() {
+  try {
+    localStorage.setItem(getTodayKey(), JSON.stringify(serializeSession()));
+  } catch (err) {
+    console.error('Save failed', err);
+    setStatus('Could not save session — your progress may not persist.', true);
+  }
+}
+
+function loadSession() {
+  const raw = localStorage.getItem(getTodayKey());
+  if (!raw) return; // no session saved yet today — start fresh
+
+  let session;
+  try {
+    session = JSON.parse(raw);
+  } catch (err) {
+    console.error('Corrupt session data', err);
+    return;
+  }
+
+  session.nodes.forEach(n => {
+    state.nodes.set(n.title, n);
+    cy.add({ group: 'nodes', data: { id: n.title, label: n.title } });
+  });
+  session.edges.forEach(e => addEdgeIfNew(e.source, e.target));
+
+  if (state.nodes.size) {
+    cy.layout({ name: 'cose' }).run();
+    if (session.activeNodeId) setActive(session.activeNodeId);
+    setStatus(`Loaded today's session — ${state.nodes.size} article${state.nodes.size === 1 ? '' : 's'}.`);
+  }
+}
+
+loadSession();
+</script>
+</body>
+</html>
